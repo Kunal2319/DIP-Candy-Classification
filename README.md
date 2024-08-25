@@ -4,9 +4,9 @@
 This repository contains all the necessary files and instructions to run a complete project on candy classification using digital image processing techniques.
 
 ### 📂 How to Use This Repository:
-requirements.txt: Contains all the dependencies needed to run the project.
-model.py: Script for building and training the classification model.
-Additional files: Any other essential scripts or data.
+- requirements.txt: Contains all the dependencies needed to run the project.
+- model.py: Script for building and training the classification model.
+- Additional files: Any other essential scripts or data.
 
 ### 🛠️ Tools and Technologies:
 TensorFlow: The primary framework used for model development.
