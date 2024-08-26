@@ -35,4 +35,6 @@ Google Colab: Platform for running Jupyter notebooks in the cloud.
 
 ## 📬 Questions? Contact us:
 - ![Email](https://img.shields.io/badge/Español-martinete.avila@gmail.com-44a3f1?style=for-the-badge&logo=gmail&logoColor=white&labelColor=101010)
+- ![Email](https://img.shields.io/badge/Portugues-hadsonsb2221@gmail.com-44a3f1?style=for-the-badge&logo=gmail&logoColor=white&labelColor=101010)
+
 
