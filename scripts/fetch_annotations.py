@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ET
 
-def show_first_3_annotations(xml_file):
+def show_first_3_annotations(xml_file: str) -> None:
     """
     Displays the first 3 annotations from the specified XML file.
     
