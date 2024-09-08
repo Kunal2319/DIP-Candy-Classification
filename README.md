@@ -9,8 +9,9 @@ This repository contains all the necessary files and instructions to run a compl
 - Additional files: Any other essential scripts or data.
 
 ### 🛠️ Tools and Technologies:
-TensorFlow: The primary framework used for model development.
-Google Colab: Platform for running Jupyter notebooks in the cloud.
+- TensorFlow: The primary framework used for model development.
+- Google Colab: Platform for running Jupyter notebooks in the cloud.
+- CVAT: Segmentation
 
 ### 💻 Local Workspace Specs:
 ![NVIDIA-RTX2070](https://img.shields.io/badge/NVIDIA-RTX2070-76B900?style=for-the-badge&logo=nvidia&logoColor=white)</br>
