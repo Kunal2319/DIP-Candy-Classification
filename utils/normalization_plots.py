@@ -116,67 +116,60 @@ def histogram_mean_and_variance(average_prototype, red_images: list, green_image
 
     # Display plots
     plt.tight_layout()
-    plt.savefig(f"/home/mab0205/UTFPR/GitHub/DIP-Candy-Classification/docs/{name}average_histogram_variance.png", dpi=300, bbox_inches="tight")
+    dir_path = base_dir = os.getcwd()
+    output_path = os.path.join(dir_path, 'docs', f'{name}average_histogram_variance.png')
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
 
-
-def load_images(folder_path: str):
-    """
-    Load all images from a folder and convert them to NumPy arrays in RGB -> HSV format.
+def split_channels(images:list):
+    '''
+    Split the RGB and HSV channels of a list of images.
 
     Args:
-        folder_path: Path to the folder where images are located.
-
+        images: List of NumPy arrays representing images.
+    
     Returns:
-        Tuple of lists containing the red, green, blue, hue, saturation, and value channels of the images.
-    """
+        red_images: List of NumPy arrays representing the red channel of images.
+        green_images: List of NumPy arrays representing the green channel of images.
+        blue_images: List of NumPy arrays representing the blue channel of images.
+        hue_images: List of NumPy arrays representing the hue channel of images.
+        saturation_images: List of NumPy arrays representing the saturation channel of images.
+        value_images: List of NumPy arrays representing the value (brightness) channel of images.
+    '''
     red_images, green_images, blue_images = [], [], []
     hue_images, saturation_images, value_images = [], [], []
 
-    for file in os.listdir(folder_path):
-        if file.endswith((".jpg", ".jpeg")):
-            image_path = os.path.join(folder_path, file)
-            img_bgr = cv2.imread(image_path)
+    for img in images:
+        blue_channel, green_channel, red_channel = cv2.split(img)
+        red_images.append(red_channel)
+        green_images.append(green_channel)
+        blue_images.append(blue_channel)
 
-            if img_bgr is not None:
-                # Split into RGB channels
-                blue_channel, green_channel, red_channel = cv2.split(img_bgr)
-                red_images.append(red_channel)
-                green_images.append(green_channel)
-                blue_images.append(blue_channel)
-
-                # Convert to HSV and split channels
-                img_hsv = cv2.cvtColor(img_bgr, cv2.COLOR_RGB2HSV)
-                hue_channel, saturation_channel, value_channel = cv2.split(img_hsv)
-                hue_images.append(hue_channel)
-                saturation_images.append(saturation_channel)
-                value_images.append(value_channel)
-            else:
-                print(f"Failed to load image: {file}")
-        else:
-            print(f"Skipped non-image file: {file}")
+        # Convert to HSV and split channels
+        img_hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+        hue_channel, saturation_channel, value_channel = cv2.split(img_hsv)
+        hue_images.append(hue_channel)
+        saturation_images.append(saturation_channel)
+        value_images.append(value_channel)
 
     return red_images, green_images, blue_images, hue_images, saturation_images, value_images
 
 
 
-def generate_image_statitics(folder_path: str):
+def generate_image_statitics(images: list, class_name: str) -> None:
+    '''
+    Generate the image statistics for a given class of images.
 
-    # List all subdirectories (classes) in the folder_path
-    class_folders = [f.path for f in os.scandir(folder_path) if f.is_dir()]
-    
-    for class_folder in class_folders:
-        class_name = os.path.basename(class_folder)
-        print(class_name)
-        print(class_folder)
-        red_images, green_images, blue_images, hue_images, saturation_images, value_images = load_images(class_folder)
+    Args:
+        images: List of NumPy arrays representing images.
+        class_name: String name of the class.
+    '''
+    red_images, green_images, blue_images, hue_images, saturation_images, value_images = split_channels(images)
 
-        prototype = average_prototype(red_images, green_images, blue_images)
+    prototype = average_prototype(red_images, green_images, blue_images)
 
-
-        histogram_mean_and_variance(prototype, red_images, green_images, blue_images,
-                                                    hue_images, saturation_images, value_images, class_name)
-
-        print(f"Class '{class_name}' statistics:")
-        print("Average prototype calculated successfully!")
-        print("Histogram variance calculated!")
-        print("Mean histogram calculated!")
+    histogram_mean_and_variance(prototype, red_images, green_images, blue_images,
+                                                hue_images, saturation_images, value_images, class_name)
+    print(f"Class '{class_name}' statistics:")
+    print("Average prototype calculated successfully!")
+    print("Histogram variance calculated!")
+    print("Mean histogram calculated!")
