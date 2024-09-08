@@ -4,7 +4,7 @@ import os
 import matplotlib.pyplot as plt
 
 # prototipo medio 
-def average_prototype(red_images, green_images, blue_images): 
+def average_prototype(red_images: list, green_images: list, blue_images: list): 
     """
     Calculate the average prototype of a class, which is the mean of all images.
 
@@ -29,8 +29,9 @@ def average_prototype(red_images, green_images, blue_images):
     return average_prototype
 
 # histograma_medio_e_variancia
-def histogram_mean_and_variance(average_prototype, red_images, green_images, blue_images, hue_images,
-                                saturation_images, value_images, name, bins=256):
+def histogram_mean_and_variance(average_prototype, red_images: list, green_images: list, 
+                                blue_images: list, hue_images: list,
+                                saturation_images: list, value_images: list, name: str, bins=256):
     """
     Calculate and plot the mean histogram and variance of histograms for a list of images,
     alongside the average prototype image.
@@ -56,7 +57,7 @@ def histogram_mean_and_variance(average_prototype, red_images, green_images, blu
     # Calculate histograms for each image of each channel
     for red, green, blue, hue, saturation, value in zip(
             red_images, green_images, blue_images, hue_images, saturation_images, value_images):
-        hist_red, _ = np.histogram(red, bins=bins, range=(0, 256))
+        hist_reds.append(np.histogram(red, bins=bins, range=(0, 256))[0])
         hist_greens.append(np.histogram(green, bins=bins, range=(0, 256))[0])
         hist_blues.append(np.histogram(blue, bins=bins, range=(0, 256))[0])
         hist_hues.append(np.histogram(hue, bins=bins, range=(0, 256))[0])
@@ -118,7 +119,7 @@ def histogram_mean_and_variance(average_prototype, red_images, green_images, blu
     plt.savefig(f"/home/mab0205/UTFPR/GitHub/DIP-Candy-Classification/docs/{name}average_histogram_variance.png", dpi=300, bbox_inches="tight")
 
 
-def load_images(folder_path):
+def load_images(folder_path: str):
     """
     Load all images from a folder and convert them to NumPy arrays in RGB -> HSV format.
 
@@ -158,7 +159,7 @@ def load_images(folder_path):
 
 
 
-def generate_image_statitics(folder_path):
+def generate_image_statitics(folder_path: str):
 
     # List all subdirectories (classes) in the folder_path
     class_folders = [f.path for f in os.scandir(folder_path) if f.is_dir()]
@@ -179,8 +180,3 @@ def generate_image_statitics(folder_path):
         print("Average prototype calculated successfully!")
         print("Histogram variance calculated!")
         print("Mean histogram calculated!")
-
-
-
-folder_path = "/home/mab0205/UTFPR/GitHub/DIP-Candy-Classification/database"
-generate_image_statitics(folder_path)

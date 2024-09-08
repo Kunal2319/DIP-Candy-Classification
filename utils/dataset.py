@@ -1,13 +1,19 @@
 import os
+import json
 import cv2
 import numpy as np
 import albumentations as A
-import json
 import uuid
 
 
 class CandyDataset:
-    def __init__(self, data_dir):
+    def __init__(self, data_dir) -> None:
+        """
+        Initialize the dataset with the directory containing the images and annotations.
+
+        Args:
+            data_dir (str): Directory containing image files and JSON annotation files.
+        """
         self.data_dir = data_dir
         self.images = []
         self.masks = []
@@ -19,26 +25,32 @@ class CandyDataset:
         self.load_data()
 
     def load_data(self):
+        """
+        Load JSON annotations and images from the specified directory.
+        """
         for file in os.listdir(self.data_dir):
             if file.endswith('.json'):
                 with open(os.path.join(self.data_dir, file)) as f:
                     self._json = json.load(f)
                     self._load_annotations(self._json)
 
-    def _load_annotations(self, data):
+    def _load_annotations(self, data) -> None:
+        """
+        Load image annotations from a JSON file and prepare corresponding images, masks, and bounding boxes.
+
+        Args:
+            data (dict): Parsed JSON data with annotations and image information.
+        """
         for img_data in data['images']:
             img_path = os.path.join(self.data_dir, img_data['file_name'])
             img = cv2.imread(img_path)
 
-            if img_path.endswith('.json'):
-                continue
-
-            if img is None:
+            if img_path.endswith('.json') or img is None:
                 print(f'Error reading image: {img_path}')
                 continue
 
             ann = data['annotations'][img_data['id'] - 1]
- 
+
             rle_mask = ann['segmentation']['counts']
             mask = self._rle_to_mask(rle_mask, (img_data['height'], img_data['width']))
             bbox = np.array([ann['bbox']])
@@ -48,9 +60,21 @@ class CandyDataset:
             self.bboxes.append(bbox)
             self._last_id = max(self._last_id, img_data['id'])
 
-    def add_sample(self, img, img_name, bbox, mask, img_id, category_id):
+    def add_sample(self, img, img_name: str, bbox: list, mask, img_id: int, category_id: int) -> None:
+        """
+        Add a new image sample with bounding box and mask to the dataset.
+
+        Args:
+            img (numpy.ndarray): Image data.
+            img_name (str): Image filename.
+            bbox (list): Bounding box coordinates.
+            mask (numpy.ndarray): Segmentation mask.
+            img_id (int): Image identifier.
+            category_id (int): Category identifier.
+        """
         segmentation = self._mask_to_rle(mask)
         self._last_id += 1
+
         self._json['annotations'].append({
             'id': self._last_id,
             'image_id': img_id,
@@ -82,8 +106,21 @@ class CandyDataset:
         self.images.append(img)
         self.masks.append(mask)
         self.bboxes.append(bbox)
-    
-    def apply_augmentation(self, image, bboxes, mask, angle=15, shear_value=15):
+
+    def apply_augmentation(self, image, bboxes: list, mask, angle=15, shear_value=15):
+        """
+        Apply data augmentation to the given image, bounding boxes, and mask.
+
+        Args:
+            image (numpy.ndarray): Image to augment.
+            bboxes (list): List of bounding boxes.
+            mask (numpy.ndarray): Segmentation mask.
+            angle (int, optional): Rotation angle limit. Defaults to 15.
+            shear_value (int, optional): Shear transformation limit. Defaults to 15.
+
+        Returns:
+            dict: Augmented image, bounding boxes, and mask.
+        """
         transform = A.Compose([
             A.OneOf([
                 A.SafeRotate(limit=angle, border_mode=cv2.BORDER_REPLICATE),
@@ -102,7 +139,13 @@ class CandyDataset:
         result['bbox'] = result['bboxes'][0]
         return result
 
-    def augment_dataset(self, num_copies=8):
+    def augment_dataset(self, num_copies=8)-> None:
+        """
+        Apply augmentation to the entire dataset to generate multiple copies of each image.
+
+        Args:
+            num_copies (int, optional): Number of augmented copies to generate for each image. Defaults to 8.
+        """
         json_copy = self._json.copy()
         images_copy = self.images.copy()
 
@@ -125,21 +168,38 @@ class CandyDataset:
                     img_id,
                     augmented_data['labels'][0]
                 )
-    
+
     def equalize_histogram(self, image, clip_limit=1.0, tile_grid_size=(8, 8)):
+        """
+        Apply CLAHE (Contrast Limited Adaptive Histogram Equalization) to enhance image contrast.
+
+        Args:
+            image (numpy.ndarray): Input image.
+            clip_limit (float, optional): Threshold for contrast clipping. Defaults to 1.0.
+            tile_grid_size (tuple, optional): Grid size for histogram equalization. Defaults to (8, 8).
+
+        Returns:
+            numpy.ndarray: Image with equalized contrast.
+        """
         img_yuv = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
-        clahe = cv2.createCLAHE(
-            clipLimit=clip_limit,
-            tileGridSize=tile_grid_size
-        )
+        clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
         img_yuv[:, :, 0] = clahe.apply(img_yuv[:, :, 0])
         return cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
-    
-    def normalize_dataset(self):
+
+    def normalize_dataset(self)-> None:
+        """
+        Apply histogram equalization to the entire dataset to normalize image contrast.
+        """
         for i, image in enumerate(self.images):
             self.images[i] = self.equalize_histogram(image)
 
-    def export_images(self, output_dir):
+    def export_images(self, output_dir: str) -> None:
+        """
+        Export the dataset images to the specified output directory.
+
+        Args:
+            output_dir (str): Directory to save images.
+        """
         os.makedirs(output_dir, exist_ok=True)
         for i in range(len(self.images)):
             img_name = self._json['images'][i]['file_name']
@@ -147,7 +207,13 @@ class CandyDataset:
             img = self.images[i]
             cv2.imwrite(img_path, img)
 
-    def export_masks(self, output_dir):
+    def export_masks(self, output_dir: str) -> None:
+        """
+        Export the masks to the specified output directory.
+
+        Args:
+            output_dir (str): Directory to save masks.
+        """
         os.makedirs(output_dir, exist_ok=True)
         for i in range(len(self.images)):
             img_name = self._json['images'][i]['file_name'].split('.')[0]
@@ -156,12 +222,28 @@ class CandyDataset:
             mask_path = os.path.join(output_dir, mask_name)
             cv2.imwrite(mask_path, mask)
 
-    def save_annotations(self, output_dir):
+    def save_annotations(self, output_dir: str) -> None:
+        """
+        Save the JSON annotations to the specified output directory.
+
+        Args:
+            output_dir (str): Directory to save the annotations JSON file.
+        """
         os.makedirs(output_dir, exist_ok=True)
         with open(os.path.join(output_dir, '_annotations.json'), 'w') as f:
             json.dump(self._json, f, indent=4)
 
-    def _rle_to_mask(self, rle_counts, mask_size):
+    def _rle_to_mask(self, rle_counts: list, mask_size: tuple):
+        """
+        Convert RLE (Run Length Encoding) to a binary mask.
+
+        Args:
+            rle_counts (list): RLE encoded segmentation.
+            mask_size (tuple): Size of the mask.
+
+        Returns:
+            numpy.ndarray: Binary mask.
+        """
         height, width = mask_size
         mask = np.zeros(height * width, dtype=np.uint8)
 
@@ -174,10 +256,18 @@ class CandyDataset:
                 mask[current_pos:current_pos + count] = 1
                 current_pos += count
         mask = mask.reshape((width, height)).T
-
         return mask.reshape((height, width))
 
-    def _mask_to_rle(self, mask):
+    def _mask_to_rle(self, mask) -> list:
+        """
+        Convert a binary mask to RLE (Run Length Encoding).
+
+        Args:
+            mask (numpy.ndarray): Binary mask.
+
+        Returns:
+            list: RLE encoded mask.
+        """
         pixels = mask.flatten(order='F')
         prev_pixel, count = 0, 0
         rle = []
