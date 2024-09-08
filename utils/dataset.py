@@ -1,5 +1,4 @@
 import os
-import re
 import cv2
 import json
 import uuid
@@ -242,6 +241,24 @@ class CandyDataset:
         self.data_split['train'] = indices[:num_train]
         self.data_split['val'] = indices[num_train:num_train + num_val]
         self.data_split['test'] = indices[num_train + num_val:]
+
+    def get_category_images(self, category_name: str) -> list:
+        """
+        Get image indexes for a specific category.
+
+        Args:
+            category_name (str): Category name.
+
+        Returns:
+            list: List of images.
+        """
+
+        indexes = self.categories_indexes[category_name]
+        images_data = []
+        for idx in indexes:
+            images_data.append(self.__getitem__(idx))
+        
+        return images_data
 
     def export_images(self, output_dir: str) -> None:
         """
