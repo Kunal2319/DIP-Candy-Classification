@@ -1,9 +1,11 @@
 import os
-import json
+import re
 import cv2
-import numpy as np
-import albumentations as A
+import json
 import uuid
+import numpy as np
+import collections
+import albumentations as A
 
 
 class CandyDataset:
@@ -21,6 +23,18 @@ class CandyDataset:
 
         self._json = None
         self._last_id = 0
+        self._categories = {}
+
+        # Dictionary to store indexes of images for each split
+        self.data_split = {
+            'train': [],
+            'val': [],
+            'test': []
+        }
+
+        # Dictionary to store indexes of images for each category
+        # Key: category_id, Value: List of image indexes
+        self.categories_indexes = collections.defaultdict(list)
 
         self.load_data()
 
@@ -32,6 +46,11 @@ class CandyDataset:
             if file.endswith('.json'):
                 with open(os.path.join(self.data_dir, file)) as f:
                     self._json = json.load(f)
+
+                    # Fill the categories dictionary
+                    for category in self._json['categories']:
+                        self._categories[category['id']] = category['name']
+
                     self._load_annotations(self._json)
 
     def _load_annotations(self, data) -> None:
@@ -45,14 +64,20 @@ class CandyDataset:
             img_path = os.path.join(self.data_dir, img_data['file_name'])
             img = cv2.imread(img_path)
 
+
+
             if img_path.endswith('.json') or img is None:
                 print(f'Error reading image: {img_path}')
                 continue
 
             ann = data['annotations'][img_data['id'] - 1]
 
+            category_name = self._categories[ann['category_id']]
+            self.categories_indexes[category_name].append(len(self.images))
+
             rle_mask = ann['segmentation']['counts']
-            mask = self._rle_to_mask(rle_mask, (img_data['height'], img_data['width']))
+            mask = self._rle_to_mask(
+                rle_mask, (img_data['height'], img_data['width']))
             bbox = np.array([ann['bbox']])
 
             self.images.append(img)
@@ -103,6 +128,9 @@ class CandyDataset:
             'date_captured': 0
         })
 
+        category_name = self._categories[category_id]
+        self.categories_indexes[category_name].append(len(self.images))
+
         self.images.append(img)
         self.masks.append(mask)
         self.bboxes.append(bbox)
@@ -130,16 +158,18 @@ class CandyDataset:
                 A.VerticalFlip(),
                 A.NoOp(),
             ]),
-            A.RandomBrightnessContrast(p=0.5, brightness_limit=0.1, contrast_limit=0.1),
+            A.RandomBrightnessContrast(
+                p=0.5, brightness_limit=0.1, contrast_limit=0.1),
             A.GaussianBlur(p=0.5),
-            A.HueSaturationValue(p=0.5, hue_shift_limit=0, sat_shift_limit=10, val_shift_limit=0)
+            A.HueSaturationValue(p=0.5, hue_shift_limit=0,
+                                 sat_shift_limit=10, val_shift_limit=0)
         ], bbox_params=A.BboxParams(format='coco', label_fields=['labels']))
 
         result = transform(image=image, bboxes=bboxes, mask=mask, labels=[0])
         result['bbox'] = result['bboxes'][0]
         return result
 
-    def augment_dataset(self, num_copies=8)-> None:
+    def augment_dataset(self, num_copies=8) -> None:
         """
         Apply augmentation to the entire dataset to generate multiple copies of each image.
 
@@ -182,16 +212,36 @@ class CandyDataset:
             numpy.ndarray: Image with equalized contrast.
         """
         img_yuv = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
-        clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=tile_grid_size)
+        clahe = cv2.createCLAHE(clipLimit=clip_limit,
+                                tileGridSize=tile_grid_size)
         img_yuv[:, :, 0] = clahe.apply(img_yuv[:, :, 0])
         return cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
 
-    def normalize_dataset(self)-> None:
+    def normalize_dataset(self) -> None:
         """
         Apply histogram equalization to the entire dataset to normalize image contrast.
         """
         for i, image in enumerate(self.images):
             self.images[i] = self.equalize_histogram(image)
+
+    def split_dataset(self, train_ratio=0.8, val_ratio=0.1, test_ratio=0.1):
+        """
+        Split the dataset into training, validation, and test sets.
+
+        Args:
+            train_ratio (float, optional): Training set ratio. Defaults to 0.8.
+            val_ratio (float, optional): Validation set ratio. Defaults to 0.1.
+            test_ratio (float, optional): Test set ratio. Defaults to 0.1.
+        """
+
+        num_images = len(self.images)
+        num_train = int(train_ratio * num_images)
+        num_val = int(val_ratio * num_images)
+
+        indices = np.random.permutation(num_images)
+        self.data_split['train'] = indices[:num_train]
+        self.data_split['val'] = indices[num_train:num_train + num_val]
+        self.data_split['test'] = indices[num_train + num_val:]
 
     def export_images(self, output_dir: str) -> None:
         """
@@ -285,3 +335,21 @@ class CandyDataset:
             rle = [0] + rle
 
         return rle
+
+    def __getitem__(self, idx: int):
+        """
+        Get an item from the dataset by index.
+
+        Args:
+            idx (int): Index of the item to retrieve.
+
+        Returns:
+            dict: Image, mask, and bounding box data.
+        """
+        category_id = self._json['annotations'][idx]['category_id']
+        return {
+            'image': self.images[idx],
+            'mask': self.masks[idx],
+            'bbox': self.bboxes[idx],
+            'category': self._categories[category_id],
+        }
