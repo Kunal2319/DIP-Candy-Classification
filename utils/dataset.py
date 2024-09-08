@@ -182,6 +182,7 @@ class CandyDataset:
             mask = self.masks[i]
             bbox = np.array(self.bboxes[i])
             img_id = json_copy['images'][i]['id']
+            category_id = json_copy['annotations'][i]['category_id']
 
             img_name = json_copy['images'][i]['file_name'].split('.')[0]
             for _ in range(num_copies):
@@ -195,7 +196,7 @@ class CandyDataset:
                     augmented_data['bbox'],
                     augmented_data['mask'],
                     img_id,
-                    augmented_data['labels'][0]
+                    category_id
                 )
 
     def equalize_histogram(self, image, clip_limit=1.0, tile_grid_size=(8, 8)):
