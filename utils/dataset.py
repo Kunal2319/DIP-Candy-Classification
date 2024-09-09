@@ -70,19 +70,19 @@ class CandyDataset:
             ann = data['annotations'][img_data['id'] - 1]
 
             category_name = self._categories[ann['category_id']]
-            self.categories_indexes[category_name].append(len(self.images))
+            self.categories_indexes[category_name].append(img_data['id'] - 1)
 
             rle_mask = ann['segmentation']['counts']
             mask = self._rle_to_mask(
                 rle_mask, (img_data['height'], img_data['width']))
-            bbox = np.array([ann['bbox']])
+            bbox = ann['bbox']
 
             self.images.append(img)
             self.masks.append(mask)
             self.bboxes.append(bbox)
             self._last_id = max(self._last_id, img_data['id'])
 
-    def add_sample(self, img, img_name: str, bbox: list, mask, img_id: int, category_id: int) -> None:
+    def add_sample(self, img, img_name: str, bbox: list, mask, category_id: int) -> None:
         """
         Add a new image sample with bounding box and mask to the dataset.
 
@@ -96,9 +96,10 @@ class CandyDataset:
         """
         segmentation = self._mask_to_rle(mask)
         self._last_id += 1
+        img_id = self._last_id
 
         self._json['annotations'].append({
-            'id': self._last_id,
+            'id': img_id,
             'image_id': img_id,
             'category_id': category_id,
             'area': bbox[2] * bbox[3],
@@ -126,13 +127,13 @@ class CandyDataset:
         })
 
         category_name = self._categories[category_id]
-        self.categories_indexes[category_name].append(len(self.images))
+        self.categories_indexes[category_name].append(img_id - 1)
 
         self.images.append(img)
         self.masks.append(mask)
         self.bboxes.append(bbox)
 
-    def apply_augmentation(self, image, bboxes: list, mask, angle=15, shear_value=15):
+    def apply_augmentation(self, image, bbox: list, mask, angle=15, shear_value=15):
         """
         Apply data augmentation to the given image, bounding boxes, and mask.
 
@@ -146,6 +147,7 @@ class CandyDataset:
         Returns:
             dict: Augmented image, bounding boxes, and mask.
         """
+        bboxes = [bbox]
         transform = A.Compose([
             A.OneOf([
                 A.SafeRotate(limit=angle, border_mode=cv2.BORDER_REPLICATE),
@@ -163,7 +165,7 @@ class CandyDataset:
         ], bbox_params=A.BboxParams(format='coco', label_fields=['labels']))
 
         result = transform(image=image, bboxes=bboxes, mask=mask, labels=[0])
-        result['bbox'] = result['bboxes'][0]
+        result['bbox'] = [float(round(b)) for b in result['bboxes'][0]]
         return result
 
     def augment_dataset(self, num_copies=8) -> None:
@@ -178,8 +180,7 @@ class CandyDataset:
 
         for i, image in enumerate(images_copy):
             mask = self.masks[i]
-            bbox = np.array(self.bboxes[i])
-            img_id = json_copy['images'][i]['id']
+            bbox = self.bboxes[i]
             category_id = json_copy['annotations'][i]['category_id']
 
             img_name = json_copy['images'][i]['file_name'].split('.')[0]
@@ -193,7 +194,6 @@ class CandyDataset:
                     augmented_name,
                     augmented_data['bbox'],
                     augmented_data['mask'],
-                    img_id,
                     category_id
                 )
 
@@ -372,7 +372,7 @@ class CandyDataset:
             idx (int): Index of the item to retrieve.
 
         Returns:
-            dict: Image, mask, and bounding box data.
+            dict: Image, mask, bounding box, category, and category ID.
         """
         category_id = self._json['annotations'][idx]['category_id']
         return {

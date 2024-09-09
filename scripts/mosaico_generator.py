@@ -42,7 +42,7 @@ def show_mosaic_images(root_dir: str) -> None:
     plt.tight_layout()
     plt.show()
 
-def generate_mosaico_from_object(class_codification_tabel:list, dataset, category_img,
+def generate_mosaic(class_codification_tabel:list, dataset, category_img,
                                  cols = 5, rows = 2 ) -> None:
 
     plt.figure(figsize=(15, 6))
