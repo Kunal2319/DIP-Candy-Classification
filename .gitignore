@@ -2,3 +2,4 @@ database
 dataset
 scripts/__pycache__
 utils/__pycache__
+resized/

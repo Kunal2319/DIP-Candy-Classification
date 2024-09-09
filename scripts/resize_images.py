@@ -26,5 +26,3 @@ def resize_images( input_dir: str, output_dir: str, target_size) -> None:
                         img = img.convert('RGB')
                     
                     img.save(output_path)
-                    
-                print(f'Resized: {input_path} -> {output_path}')

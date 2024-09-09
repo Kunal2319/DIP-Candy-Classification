@@ -62,8 +62,6 @@ class CandyDataset:
         for img_data in data['images']:
             img_path = os.path.join(self.data_dir, img_data['file_name'])
             img = cv2.imread(img_path)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
 
             if img_path.endswith('.json') or img is None:
                 print(f'Error reading image: {img_path}')
