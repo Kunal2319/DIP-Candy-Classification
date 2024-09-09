@@ -2,6 +2,7 @@ from skimage import io, transform
 import os
 import matplotlib.pyplot as plt
 import numpy as np
+import cv2
 
 def show_mosaic_images(root_dir: str) -> None:
     """
@@ -18,30 +19,48 @@ def show_mosaic_images(root_dir: str) -> None:
         class_path = os.path.join(root_dir, class_folder)
         
         if os.path.isdir(class_path):
-            for subfolder in ['W', 'B']: #get 1 pic from White and Black
-                subfolder_path = os.path.join(class_path, subfolder)
+            for image_name in os.listdir(class_path)[:2]:
+                image_path = os.path.join(class_path, image_name)
+                img = io.imread(image_path)
                 
-                if os.path.isdir(subfolder_path): # open subfolders 
-                    for image_name in os.listdir(subfolder_path)[:1]:
-                        image_path = os.path.join(subfolder_path, image_name)
-                        img = io.imread(image_path)
-                        
-                        img_resized = transform.resize(img, image_shape, anti_aliasing=True)
-                        images.append(img_resized)
-                        
-                        if len(images) == 20:
-                            break
-                if len(images) == 20:
+                img_resized = transform.resize(img, image_shape, anti_aliasing=True)
+                images.append(img_resized)
+                
+                if len(images) == rows * cols:
                     break
-        if len(images) == 20:
+            if len(images) == rows * cols:
+                break
+        if len(images) == rows * cols:
             break
 
-    #show image matrix 4 x 5
-    if len(images) == rows * cols:
-        mosaic = np.vstack([np.hstack(images[i * cols:(i + 1) * cols]) for i in range(rows)])
-        plt.figure(figsize=(10, 8))
-        plt.imshow(mosaic)
-        plt.axis('off')
-        plt.show()
-    else:
-        print(f"Insufficient number of images to create the mosaic. Only {len(images)} images found.")
+    # Criar o mosaico de imagens
+    fig, axes = plt.subplots(rows, cols, figsize=(15, 15))
+    for ax, img in zip(axes.flatten(), images):
+        ax.imshow(img)
+        ax.axis('off')
+
+    plt.tight_layout()
+    plt.show()
+
+def generate_mosaico_from_object(class_codification_tabel:list, dataset, category_img,
+                                 cols = 5, rows = 2 ) -> None:
+
+    plt.figure(figsize=(15, 6))
+
+    for i, (category, _) in enumerate(class_codification_tabel):
+        data_imgs = dataset.get_category_images(category)  
+        
+        if len(data_imgs) > 0:  
+            img_data = data_imgs[0]  
+            type = img_data[category_img]  
+            
+            mask_rgb = cv2.cvtColor(type, cv2.COLOR_GRAY2RGB)
+            
+
+            plt.subplot(rows, cols, i + 1)
+            plt.imshow(mask_rgb)
+            plt.title(category)  
+            plt.axis('off')  
+
+    plt.tight_layout()
+    plt.show()

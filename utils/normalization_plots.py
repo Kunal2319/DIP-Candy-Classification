@@ -153,8 +153,6 @@ def split_channels(images:list):
 
     return red_images, green_images, blue_images, hue_images, saturation_images, value_images
 
-
-
 def generate_image_statitics(images: list, class_name: str) -> None:
     '''
     Generate the image statistics for a given class of images.
