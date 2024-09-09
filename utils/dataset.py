@@ -62,7 +62,7 @@ class CandyDataset:
         for img_data in data['images']:
             img_path = os.path.join(self.data_dir, img_data['file_name'])
             img = cv2.imread(img_path)
-
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
 
             if img_path.endswith('.json') or img is None:
@@ -243,6 +243,21 @@ class CandyDataset:
         self.data_split['val'] = indices[num_train:num_train + num_val]
         self.data_split['test'] = indices[num_train + num_val:]
 
+    def get_images_data(self, indexes: list) -> list:
+        """
+        Get images from the dataset by index.
+
+        Args:
+            indexes (list): List of indexes to retrieve.
+
+        Returns:
+            list: List of images.
+        """
+        images_data = []
+        for idx in indexes:
+            images_data.append(self.__getitem__(idx))
+        return images_data
+
     def get_category_images(self, category_name: str) -> list:
         """
         Get image indexes for a specific category.
@@ -253,12 +268,9 @@ class CandyDataset:
         Returns:
             list: List of images.
         """
-
         indexes = self.categories_indexes[category_name]
-        images_data = []
-        for idx in indexes:
-            images_data.append(self.__getitem__(idx))
-        
+        images_data = self.get_images_data(indexes)      
+
         return images_data
 
     def export_images(self, output_dir: str) -> None:
@@ -370,4 +382,5 @@ class CandyDataset:
             'mask': self.masks[idx],
             'bbox': self.bboxes[idx],
             'category': self._categories[category_id],
+            'category_id': category_id
         }
