@@ -4,14 +4,20 @@
 This repository contains all the necessary files and instructions to run a complete project on candy classification using digital image processing techniques.
 
 ### 📂 How to Use This Repository:
-- requirements.txt: Contains all the dependencies needed to run the project.
-- model.py: Script for building and training the classification model.
+- `requirements.txt`: Contains all the dependencies needed to run the project.
+- `cnn.ipynb`: Notebook for building and training the classification model.
+- `main.ipynb`: Notebook containing all the details of the process of creating and preparing the dataset.
 - Additional files: Any other essential scripts or data.
 
 ### 🛠️ Tools and Technologies:
 - TensorFlow: The primary framework used for model development.
 - Google Colab: Platform for running Jupyter notebooks in the cloud.
-- CVAT: Segmentation
+- CVAT: Tool for image segmentation.
+- OpenCV: For dataset creation and pre-processing.
+- NumPy: For handling arrays and matrices.
+- Albumentations: For data augmentation.
+- Matplotlib and Seaborn: For plotting graphs.
+- Scikit-learn (sklearn.metrics): For performance evaluation metrics.
 
 ### 💻 Local Workspace Specs:
 ![NVIDIA-RTX2070](https://img.shields.io/badge/NVIDIA-RTX2070-76B900?style=for-the-badge&logo=nvidia&logoColor=white)</br>
