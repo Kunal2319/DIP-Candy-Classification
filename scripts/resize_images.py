@@ -18,6 +18,8 @@ def resize_images( input_dir: str, output_dir: str, target_size) -> None:
                 relative_path = os.path.relpath(root, input_dir)
                 output_path = os.path.join(output_dir, relative_path, file) #save in a separated folder
                 os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                all_output_path = os.path.join(output_dir, relative_path, file) 
+                os.makedirs(os.path.dirname(all_output_path), exist_ok=True)
                 
                 with Image.open(input_path) as img:
                     img = img.resize(target_size, Image.Resampling.LANCZOS) # resized 
@@ -26,3 +28,4 @@ def resize_images( input_dir: str, output_dir: str, target_size) -> None:
                         img = img.convert('RGB')
                     
                     img.save(output_path)
+                    img.save(all_output_path)

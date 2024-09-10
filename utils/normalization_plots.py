@@ -139,7 +139,7 @@ def split_channels(images:list):
     hue_images, saturation_images, value_images = [], [], []
 
     for img in images:
-        blue_channel, green_channel, red_channel = cv2.split(img)
+        red_channel, green_channel, blue_channel = cv2.split(img)
         red_images.append(red_channel)
         green_images.append(green_channel)
         blue_images.append(blue_channel)
@@ -161,6 +161,7 @@ def generate_image_statitics(images: list, class_name: str) -> None:
         images: List of NumPy arrays representing images.
         class_name: String name of the class.
     '''
+    
     red_images, green_images, blue_images, hue_images, saturation_images, value_images = split_channels(images)
 
     prototype = average_prototype(red_images, green_images, blue_images)
@@ -168,6 +169,6 @@ def generate_image_statitics(images: list, class_name: str) -> None:
     histogram_mean_and_variance(prototype, red_images, green_images, blue_images,
                                                 hue_images, saturation_images, value_images, class_name)
     print(f"Class '{class_name}' statistics:")
-    print("Average prototype calculated successfully!")
-    print("Histogram variance calculated!")
-    print("Mean histogram calculated!")
+    print("\tAverage prototype calculated successfully!")
+    print("\tHistogram variance calculated!")
+    print("\tMean histogram calculated!")

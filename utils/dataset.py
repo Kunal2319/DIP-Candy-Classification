@@ -1,3 +1,4 @@
+import itertools
 import os
 import cv2
 import json
@@ -11,64 +12,42 @@ class CandyDataset:
     def __init__(self, data_dir) -> None:
         """
         Initialize the dataset with the directory containing the images and annotations.
-
-        Args:
-            data_dir (str): Directory containing image files and JSON annotation files.
         """
         self.data_dir = data_dir
-        self.images = []
-        self.masks = []
-        self.bboxes = []
-
+        self.images, self.masks, self.bboxes = [], [], []
         self._json = None
         self._last_id = 0
         self._categories = {}
-
-        # Dictionary to store indexes of images for each split
-        self.data_split = {
-            'train': [],
-            'val': [],
-            'test': []
-        }
-
-        # Dictionary to store indexes of images for each category
-        # Key: category_id, Value: List of image indexes
+        self.data_split = {'train': [], 'val': [], 'test': []}
         self.categories_indexes = collections.defaultdict(list)
 
-        self.load_data()
+        self._load_data()
 
-    def load_data(self):
+    def _load_data(self):
         """
-        Load JSON annotations and images from the specified directory.
+        Load the dataset images and annotations from the JSON file.
         """
-        for file in os.listdir(self.data_dir):
-            if file.endswith('.json'):
-                with open(os.path.join(self.data_dir, file)) as f:
-                    self._json = json.load(f)
+        # Find the JSON file in the data directory
+        json_file = next((f for f in os.listdir(self.data_dir)
+                         if f.endswith('.json')), None)
+        if not json_file:
+            raise FileNotFoundError("No JSON file found.")
 
-                    # Fill the categories dictionary
-                    for category in self._json['categories']:
-                        self._categories[category['id']] = category['name']
+        with open(os.path.join(self.data_dir, json_file)) as f:
+            self._json = json.load(f)
 
-                    self._load_annotations(self._json)
+        self._categories = {
+            cat['id']: cat['name'] for cat in self._json['categories']
+        }
 
-    def _load_annotations(self, data) -> None:
-        """
-        Load image annotations from a JSON file and prepare corresponding images, masks, and bounding boxes.
-
-        Args:
-            data (dict): Parsed JSON data with annotations and image information.
-        """
-        for img_data in data['images']:
+        for img_data in self._json['images']:
             img_path = os.path.join(self.data_dir, img_data['file_name'])
             img = cv2.imread(img_path)
-
-            if img_path.endswith('.json') or img is None:
-                print(f'Error reading image: {img_path}')
+            if img is None:
+                print(f"Error reading image: {img_path}")
                 continue
 
-            ann = data['annotations'][img_data['id'] - 1]
-
+            ann = self._json['annotations'][img_data['id'] - 1]
             category_name = self._categories[ann['category_id']]
             self.categories_indexes[category_name].append(img_data['id'] - 1)
 
@@ -85,57 +64,49 @@ class CandyDataset:
     def add_sample(self, img, img_name: str, bbox: list, mask, category_id: int) -> None:
         """
         Add a new image sample with bounding box and mask to the dataset.
-
-        Args:
-            img (numpy.ndarray): Image data.
-            img_name (str): Image filename.
-            bbox (list): Bounding box coordinates.
-            mask (numpy.ndarray): Segmentation mask.
-            img_id (int): Image identifier.
-            category_id (int): Category identifier.
         """
-        segmentation = self._mask_to_rle(mask)
-        self._last_id += 1
-        img_id = self._last_id
+        img_id = self._last_id + 1
+        self._last_id = img_id
 
-        self._json['annotations'].append({
+        segmentation = self._mask_to_rle(mask)
+        annotation = {
             'id': img_id,
             'image_id': img_id,
             'category_id': category_id,
             'area': bbox[2] * bbox[3],
             'bbox': bbox,
             'iscrowd': 0,
-            'attributes': {
-                'occluded': False,
-                'rotation': 0.0
-            },
-            'segmentation': {
-                'counts': segmentation,
-                'size': [img.shape[0], img.shape[1]]
-            }
-        })
+            'segmentation': {'counts': segmentation, 'size': [img.shape[0], img.shape[1]]}
+        }
+        self._json['annotations'].append(annotation)
 
-        self._json['images'].append({
+        image_info = {
             'id': img_id,
             'file_name': img_name,
             'width': img.shape[1],
-            'height': img.shape[0],
-            'license': 0,
-            'flickr_url': '',
-            'coco_url': '',
-            'date_captured': 0
-        })
+            'height': img.shape[0]
+        }
+        self._json['images'].append(image_info)
 
         category_name = self._categories[category_id]
         self.categories_indexes[category_name].append(img_id - 1)
-
         self.images.append(img)
         self.masks.append(mask)
         self.bboxes.append(bbox)
 
-    def apply_augmentation(self, image, bbox: list, mask, angle=15, shear_value=15):
+    def apply_augmentation(self, image, bbox: list, mask, angle=15, shear_value=15) -> dict:
         """
-        Apply data augmentation to the given image, bounding boxes, and mask.
+        Apply data augmentation to the given image, bounding boxes, and mask. 
+        Each augmentation operation is applied with a probability of 0.5.
+
+        The operations are:
+        - Random rotation
+        - Random shear transformation
+        - Random rotation by 90 degrees
+        - Horizontal and Vertical flip
+        - Random brightness and contrast
+        - Gaussian blur
+        - Saturation shift
 
         Args:
             image (numpy.ndarray): Image to augment.
@@ -155,7 +126,6 @@ class CandyDataset:
                 A.RandomRotate90(),
                 A.HorizontalFlip(),
                 A.VerticalFlip(),
-                A.NoOp(),
             ]),
             A.RandomBrightnessContrast(
                 p=0.5, brightness_limit=0.1, contrast_limit=0.1),
@@ -171,31 +141,18 @@ class CandyDataset:
     def augment_dataset(self, num_copies=8) -> None:
         """
         Apply augmentation to the entire dataset to generate multiple copies of each image.
-
-        Args:
-            num_copies (int, optional): Number of augmented copies to generate for each image. Defaults to 8.
         """
-        json_copy = self._json.copy()
-        images_copy = self.images.copy()
-
-        for i, image in enumerate(images_copy):
+        for i, image in enumerate(self.images.copy()):
             mask = self.masks[i]
             bbox = self.bboxes[i]
-            category_id = json_copy['annotations'][i]['category_id']
+            category_id = self._json['annotations'][i]['category_id']
+            img_name = self._json['images'][i]['file_name'].split('.')[0]
 
-            img_name = json_copy['images'][i]['file_name'].split('.')[0]
             for _ in range(num_copies):
                 augmented_data = self.apply_augmentation(image, bbox, mask)
-                code = uuid.uuid4().hex[:4]
-                augmented_name = f'{img_name}-augmented-{code}.jpg'
-
-                self.add_sample(
-                    augmented_data['image'],
-                    augmented_name,
-                    augmented_data['bbox'],
-                    augmented_data['mask'],
-                    category_id
-                )
+                augmented_name = f'{img_name}-augmented-{uuid.uuid4().hex[:4]}.jpg'
+                self.add_sample(augmented_data['image'], augmented_name,
+                                augmented_data['bbox'], augmented_data['mask'], category_id)
 
     def equalize_histogram(self, image, clip_limit=1.0, tile_grid_size=(8, 8)):
         """
@@ -210,8 +167,8 @@ class CandyDataset:
             numpy.ndarray: Image with equalized contrast.
         """
         img_yuv = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
-        clahe = cv2.createCLAHE(clipLimit=clip_limit,
-                                tileGridSize=tile_grid_size)
+        clahe = cv2.createCLAHE(
+            clipLimit=clip_limit, tileGridSize=tile_grid_size)
         img_yuv[:, :, 0] = clahe.apply(img_yuv[:, :, 0])
         return cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
 
@@ -219,8 +176,7 @@ class CandyDataset:
         """
         Apply histogram equalization to the entire dataset to normalize image contrast.
         """
-        for i, image in enumerate(self.images):
-            self.images[i] = self.equalize_histogram(image)
+        self.images = [self.equalize_histogram(image) for image in self.images]
 
     def split_dataset(self, train_ratio=0.8, val_ratio=0.1, test_ratio=0.1):
         """
@@ -251,67 +207,37 @@ class CandyDataset:
         Returns:
             list: List of images.
         """
-        images_data = []
-        for idx in indexes:
-            images_data.append(self.__getitem__(idx))
-        return images_data
+        return [self.__getitem__(idx) for idx in indexes]
 
-    def get_category_images(self, category_name: str) -> list:
-        """
-        Get image indexes for a specific category.
-
-        Args:
-            category_name (str): Category name.
-
-        Returns:
-            list: List of images.
-        """
-        indexes = self.categories_indexes[category_name]
-        images_data = self.get_images_data(indexes)      
-
-        return images_data
-
-    def export_images(self, output_dir: str) -> None:
+    def export_data(self, output_dir: str, data_type='images') -> None:
         """
         Export the dataset images to the specified output directory.
 
         Args:
-            output_dir (str): Directory to save images.
+            output_dir (str): Directory to save the images.
+            data_type (str, optional): Type of data to export ('images' or 'masks'). Defaults to 'images'.
         """
         os.makedirs(output_dir, exist_ok=True)
-        for i in range(len(self.images)):
-            img_name = self._json['images'][i]['file_name']
-            img_path = os.path.join(output_dir, img_name)
-            img = self.images[i]
-            cv2.imwrite(img_path, img)
+        for i, img_name in enumerate(self._json['images']):
+            name = img_name['file_name'].split('.')[0]
+            file_name = f'{name}-mask.jpg' if data_type == 'masks' else img_name['file_name']
 
-    def export_masks(self, output_dir: str) -> None:
-        """
-        Export the masks to the specified output directory.
-
-        Args:
-            output_dir (str): Directory to save masks.
-        """
-        os.makedirs(output_dir, exist_ok=True)
-        for i in range(len(self.images)):
-            img_name = self._json['images'][i]['file_name'].split('.')[0]
-            mask_name = f'{img_name}-mask.jpg'
-            mask = self.masks[i] * 255
-            mask_path = os.path.join(output_dir, mask_name)
-            cv2.imwrite(mask_path, mask)
+            if data_type == 'masks':
+                data = self.masks[i] * 255
+            else:
+                data = self.images[i]
+            cv2.imwrite(os.path.join(output_dir, file_name), data)
 
     def save_annotations(self, output_dir: str) -> None:
         """
         Save the JSON annotations to the specified output directory.
-
-        Args:
-            output_dir (str): Directory to save the annotations JSON file.
+        The annotations are saved in a file named '_annotations.json'.
         """
         os.makedirs(output_dir, exist_ok=True)
         with open(os.path.join(output_dir, '_annotations.json'), 'w') as f:
             json.dump(self._json, f, indent=4)
 
-    def _rle_to_mask(self, rle_counts: list, mask_size: tuple):
+    def _rle_to_mask(self, rle_code: list, mask_shape: tuple):
         """
         Convert RLE (Run Length Encoding) to a binary mask.
 
@@ -322,19 +248,15 @@ class CandyDataset:
         Returns:
             numpy.ndarray: Binary mask.
         """
-        height, width = mask_size
-        mask = np.zeros(height * width, dtype=np.uint8)
-
+        mask = np.zeros(mask_shape[0] * mask_shape[1], dtype=np.uint8)
         current_pos = 0
-        for i, count in enumerate(rle_counts):
-            count = int(count)
+        for i, count in enumerate(rle_code):
             if i % 2 == 0:
                 current_pos += count
             else:
                 mask[current_pos:current_pos + count] = 1
                 current_pos += count
-        mask = mask.reshape((width, height)).T
-        return mask.reshape((height, width))
+        return mask.reshape(mask_shape, order='F')
 
     def _mask_to_rle(self, mask) -> list:
         """
@@ -347,36 +269,21 @@ class CandyDataset:
             list: RLE encoded mask.
         """
         pixels = mask.flatten(order='F')
-        prev_pixel, count = 0, 0
-        rle = []
-
-        for pixel in pixels:
-            if pixel == prev_pixel:
-                count += 1
-            else:
-                rle.append(count)
-                count = 1
-            prev_pixel = pixel
-        rle.append(count)
-
-        if pixels[0] == 1:
-            rle = [0] + rle
-
+        rle = [sum(1 for _ in group)
+               for pixel, group in itertools.groupby(pixels)]
+        rle = [0] + rle if pixels[0] else rle
         return rle
 
     def __getitem__(self, idx: int):
         """
         Get an item from the dataset by index.
 
-        Args:
-            idx (int): Index of the item to retrieve.
-
         Returns:
             dict: Image, mask, bounding box, category, and category ID.
         """
         category_id = self._json['annotations'][idx]['category_id']
         return {
-            'image': self.images[idx],
+            'image': cv2.cvtColor(self.images[idx], cv2.COLOR_BGR2RGB),
             'mask': self.masks[idx],
             'bbox': self.bboxes[idx],
             'category': self._categories[category_id],
