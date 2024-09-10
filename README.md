@@ -5,8 +5,8 @@ This repository contains all the necessary files and instructions to run a compl
 
 ### 📂 How to Use This Repository:
 - `requirements.txt`: Contains all the dependencies needed to run the project.
-- `cnn.ipynb`: Notebook for building and training the classification model.
-- `main.ipynb`: Notebook containing all the details of the process of creating and preparing the dataset.
+- `cnn-model.ipynb`: Notebook for building and training the classification model.
+- `candy-dataset.ipynb`: Notebook containing all the details of the process of creating and preparing the dataset.
 - Additional files: Any other essential scripts or data.
 
 ### 🛠️ Tools and Technologies:
